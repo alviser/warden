@@ -18,6 +18,7 @@ session cookies must be configured directly in the source code at the moment:
 
 * `WARDEN_SESSION_COOKIES_NUM` must be set to the total number of session cookies that will be tracked 
 * update the cookies names near line 340, duplicating/deleting lines if needed 
+* `WARDEN_SCOPES_NUM` must be set to the total number of scopes that need to be tracked 
 * update cookies scopes in the subsequent lines, duplicating/deleting lines if needed
 
 ### server key
@@ -62,7 +63,7 @@ CREATE TABLE keystore (key,scope,num, UNIQUE(key,scope) ON CONFLICT REPLACE);
 
 ### dependencies
 
-Warden needs some libssl and its development headers installed, it has been tested with ubuntu package version 1.0.2g, but it would probably work on earlier versions too.
+Warden needs apache2 developer tools, libssl and its development headers installed, it has been tested with ubuntu package version 1.0.2g, but it would probably work on earlier versions too.
 
 ### compiling
 
