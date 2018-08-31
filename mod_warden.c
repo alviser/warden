@@ -682,7 +682,8 @@ static bool extract_sessioncookies_from_request(request_rec *r, char **sc, cooki
         ap_cookie_read(r,sc[i],&tmpckval,false);
         
         if (tmpckval != NULL) { // if cookie is found
-            // we need to unescape the cookie value, and strip everything after the ;
+            // on previous releases we needed to unescape the cookie value, and strip everything after the ;
+            // apparently we don't need to unescape the value anymore :|
             // as the result of ap_cookie_read holds cookie attributes like Secure and HttpOnly
             res[i]  = wdn_bake_cookie(r,apr_pstrcat(r->pool,sc[i],"=",tmpckval,NULL),r->hostname);
         } else { // cookie not found
@@ -699,7 +700,6 @@ static bool extract_sessioncookies_from_request(request_rec *r, char **sc, cooki
     having one of the names passed in sc
     FIXME: returns true, probably to be removed and set return type to void for consistency
 */
-
 static bool extract_sessioncookies_from_response(request_rec *r, char **sc, cookie *res) {
     int              i;
     char            *cookies_header_string = apr_pstrdup(r->pool,apr_table_getm(r->pool,r->headers_out,"Set-Cookie"));
@@ -709,9 +709,6 @@ static bool extract_sessioncookies_from_response(request_rec *r, char **sc, cook
             cookie           ck;
             ck = wdn_bake_cookie(r,get_cookiestring_from_jar(r,cookies_header_string,sc[i]),r->hostname);
             if (ck.value != NULL) {
-                // CHECKME: do we have to filter away cookies set to expire existing cookies away?
-                // e.g. the cookies with + set by wordpress to invalidate current set cookies
-                // --> it looks like it's not needed
                 res[i] = ck;
             } else {
                 res[i] = wdn_bake_cookie(r,apr_pstrcat(r->pool,"",NULL),r->hostname);
@@ -729,7 +726,6 @@ static bool extract_sessioncookies_from_response(request_rec *r, char **sc, cook
     returns a string representing the scope s
     it is used a lot around here! :)
 */
-
 static char *scope_to_string(request_rec *r, cookiescope s) {
     char p[2] = "\0";
     p[0]    = s.prot;
@@ -745,7 +741,6 @@ static char *scope_to_string(request_rec *r, cookiescope s) {
     the plain_to_hmac value
     HMAC's with this session key matches the one in cookie_hmac
 */
-
 static bool is_linking_cookie_valid(request_rec *r, const char *cookie_hmac, char *plain_to_hmac, cookiescope scope, unsigned char *key) {
     
     ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[-->] got linking cookie: %s",cookie_hmac);    
@@ -805,14 +800,7 @@ static apr_status_t wdn_request_filter(request_rec *r) {
     }
 
     // retrieving session key
-    
     unsigned char *ks = get_KS_from_request(r);
-    // TENTATIVE: removing as this seems to invalidate too much
-    // if (ks == NULL) {
-    //     ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[-->] no KS found, stripping");
-    //     // CHECKME: quick and dirty tentative
-    //     is_request_valid = false;
-    // }
 
     // Computing request scope
     this_request_fakecookie.domain = apr_pstrdup(r->pool,r->hostname);
@@ -880,9 +868,6 @@ static apr_status_t wdn_request_filter(request_rec *r) {
                 }
             // }
         }
-        // cur_scope = make_cookie_scope(r,this_request_scope.prot,this_request_scope.host,this_request_scope.path);     // FIXME it works for this partiular case
-        // ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[-->] We built our temporary scope %c %s",cur_scope.prot,cur_scope.host);
-        /* now we have it in cur_scope */
 
         const char *hmac_cookie;
         ap_cookie_read(r,apr_pstrcat(r->pool,WARDEN_AUTH_COOKIE_NAME,scope_to_string(r,cur_scope),NULL),&hmac_cookie,false);
@@ -890,8 +875,6 @@ static apr_status_t wdn_request_filter(request_rec *r) {
         if (hmac_cookie != NULL) {
             // ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[-->] We found a linking cookie");
 
-            // char *calculatedHMAC = calculate_base64_hmac(r,hmac_this,strlen(hmac_this),wdn->hmac_key,strlen(wdn->hmac_key));
-            // if (strcmp(calculatedHMAC,hmac_cookie) == 0) {
             if (is_linking_cookie_valid(r,hmac_cookie,hmac_this,cur_scope,ks)) {
                 // ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[-->] Linking cookie HMAC matches");
             } else {
@@ -963,7 +946,6 @@ static unsigned char *generate_session_key(request_rec *r) {
     storing the session key in the server db with the various scopes
     sending the (encrypted) session key as a cookie
 */
-
 static char *setup_session(request_rec *r) {
     char          *session_key;
     int            affectedRows;
@@ -972,7 +954,7 @@ static char *setup_session(request_rec *r) {
     wdn_srv_data  *wdn =  ap_get_module_config(r->server->module_config, &warden_module);
 
     session_key = apr_pstrcat(r->pool,generate_session_key(r),NULL);
-    // now we have the base64 encoded session key in session_key (CHECKME: maybe this base64 encoding is redundant)
+    // now we have the base64 encoded session key in session_key
     // initializes the key for available scopes
     for (i=0; i<WARDEN_SCOPES_NUM; i++) {
         res = apr_dbd_pvquery(wdn->db_driver,wdn->pool,wdn->db_handle,&affectedRows,wdn->db_new_keyscope,session_key,scope_to_string(r,wdn->cookie_scopes[i]),NULL);
@@ -985,7 +967,7 @@ static char *setup_session(request_rec *r) {
                             encrypt_and_b64_for_cookie_payload(r,session_key,strlen(session_key),wdn->hmac_key),
                             ";",
                             "HttpOnly",
-                            NULL);      // CHECKME: maybe this cookie has more attributes (looks like it hasn't)
+                            NULL);
     ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[<--] session key cookie is %s",key_cookie);
     apr_table_add(r->headers_out,"Set-Cookie",key_cookie);
 
@@ -996,7 +978,6 @@ static char *setup_session(request_rec *r) {
     get_current_KS_scope_ID
     returns a string containing the value found in the DB for the key/scope pair
 */
-
 static char *get_current_KS_scope_ID(request_rec *r, char *key, cookiescope scope) {
     apr_status_t res;
     apr_dbd_results_t *db_result = NULL;    // setting this to NULL solved the segfault
@@ -1040,7 +1021,6 @@ static char *get_current_KS_scope_ID(request_rec *r, char *key, cookiescope scop
     runs a query on the DB to increase the key/scope counter, scope being identified by its
     index i over the cookie_scopes array
 */
-
 static void increase_scope_ID(request_rec *r, char *session_key, int i) {
     wdn_srv_data *wdn =  ap_get_module_config(r->server->module_config, &warden_module);
 
@@ -1060,7 +1040,6 @@ static void increase_scope_ID(request_rec *r, char *session_key, int i) {
     return plain (not base64) session key from request r if present
     NULL if WARDEN_COOKIE_NAME is not present
 */
-
 unsigned char *get_KS_from_request(request_rec *r) {
     wdn_srv_data *wdn =  ap_get_module_config(r->server->module_config, &warden_module);
 
@@ -1087,7 +1066,6 @@ unsigned char *get_KS_from_request(request_rec *r) {
     <ciphertext>|<encryption tag>
     which is the way encrypt_and_b64_for_cookie_payload constructs payloads to be used as cookies values
 */
-
 static char *unb64_and_decrypt_from_cookie_payload(request_rec *r, const char *payload, unsigned char *key) {
     wdn_srv_data *wdn =  ap_get_module_config(r->server->module_config, &warden_module);
 
@@ -1127,7 +1105,6 @@ static char *unb64_and_decrypt_from_cookie_payload(request_rec *r, const char *p
     followed by the | symbol
     followed by encryption tag, for verification
 */
-
 static char *encrypt_and_b64_for_cookie_payload(request_rec *r, unsigned char *plaintext, int plaintext_len, unsigned char *key) {
     wdn_srv_data *wdn =  ap_get_module_config(r->server->module_config, &warden_module);
 
@@ -1192,14 +1169,11 @@ static int wdn_response_filter(ap_filter_t *f, apr_bucket_brigade *pbbIn)
         ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[<--] we are in the login page");
         is_login_url = true;
 
-        // FIXME: this is here but it has probably a better place to be
         if (ks == NULL) {
             char *b64_ks = setup_session(r);
             ks = apr_pcalloc(r->pool,apr_base64_decode_len(b64_ks));
             apr_base64_decode_binary(ks,b64_ks);
         }
-    } else {
-        // ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[<--] we are NOT in the login page");
     }
 
     // from now on we can assume to have the session key (binary form) in ks, if appliable
@@ -1254,9 +1228,6 @@ static int wdn_response_filter(ap_filter_t *f, apr_bucket_brigade *pbbIn)
                 if (strcmp(browser_cookies_in[i].name,"") != 0) {
                     for(j=0;j<WARDEN_SCOPES_NUM;j++) {
                         if (is_cookie_scope_leq(r,wdn->cookie_scopes[j],this_request_scope)) {
-                            // FIXME: there are problems with the scopes here
-                            // probably the scope of the cookie should be used
-                            // not the one of the request
                             ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[<--] adding incoming %s to authenticator for scope %s",browser_cookies_in[i].name,scope_to_string(r,wdn->cookie_scopes[j]));
 
                             for (q=0;q<WARDEN_SESSION_COOKIES_NUM;q++) {
@@ -1281,9 +1252,6 @@ static int wdn_response_filter(ap_filter_t *f, apr_bucket_brigade *pbbIn)
                 if (strcmp(browser_cookies_out[i].name,"") != 0) {
                     for(j=0;j<WARDEN_SCOPES_NUM;j++) {
                         if (is_cookie_scope_leq(r,wdn->cookie_scopes[j],this_request_scope)) {
-                            // FIXME: there are problems with the scopes here
-                            // probably the scope of the cooie should be used
-                            // not the one of the request
                             ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[<--] adding outcoming %s to authenticator for scope %s",browser_cookies_out[i].name,scope_to_string(r,wdn->cookie_scopes[j]));
                             // ap_log_error(APLOG_MARK, APLOG_ERR, APR_SUCCESS, r->server, "[<--] scope %d is: %s",j,scope_authenticators[j]);
 
