@@ -599,8 +599,8 @@ static bool is_cookie_scope_leq(request_rec *r, cookiescope test_this, cookiesco
 static cookie wdn_bake_cookie(request_rec *r, char *cookie_string, const char *base_domain) {
     cookie cookme;
     char *tmp;
-    char *unescaped_cookie = apr_pstrdup(r->pool,apr_punescape_url(r->pool,cookie_string,NULL,NULL,1));
-    // char *unescaped_cookie = apr_pstrdup(r->pool,cookie_string);
+    // char *unescaped_cookie = apr_pstrdup(r->pool,apr_punescape_url(r->pool,cookie_string,NULL,NULL,1));
+    char *unescaped_cookie = apr_pstrdup(r->pool,cookie_string);
 
     cookme.secure   = false;
     cookme.http_only = false;
