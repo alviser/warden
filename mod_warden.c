@@ -23,7 +23,7 @@
 #define WARDEN_DB_PARAMS  "/var/www/html/warden/warden.db"
 
 // path to the login page
-#define WARDEN_LOGIN_PATH "/disney/login.php"
+#define WARDEN_LOGIN_PATH "/dp/login.php"
 
 // the number of session cookies, names are to be set near the end of wdn_srv_config function
 #define WARDEN_SESSION_COOKIES_NUM 3
@@ -36,7 +36,7 @@
 // the hostname warden is protecting, it could probably be dynamically set at startup
 // but it's a bit of a mess when doing local tests on localhost accessed from outside
 // this actually saves some apache config time
-#define WARDEN_STATIC_HOST_NAME "rabitti.dais.unive.it"
+#define WARDEN_STATIC_HOST_NAME "localhost"
 
 typedef struct {
     char prot;      // H = http, S = https, * = *
@@ -270,7 +270,6 @@ module AP_MODULE_DECLARE_DATA   warden_module =
 
     WARN: session cookies and session cookies scopes MUST BE configured here
 */
-
 static void *wdn_srv_config(apr_pool_t *pchild, server_rec *s) {
     apr_status_t    res;
     cookiescope     cs;
@@ -317,6 +316,7 @@ static void *wdn_srv_config(apr_pool_t *pchild, server_rec *s) {
     // login URL has to be configured in the #define section
     wdn->login_URL  = apr_pstrdup(wdn->pool,WARDEN_LOGIN_PATH);
     
+    /* configure session cookies names here */
     // repeat the following lines as much as needed up to WARDEN_SESSION_COOKIES_NUM and update
     // it with the correct index and the session cookie names
     // wdn->expected_session_cookies[0]    = apr_pstrdup(wdn->pool,"session_cookie_1");
@@ -324,9 +324,10 @@ static void *wdn_srv_config(apr_pool_t *pchild, server_rec *s) {
     wdn->expected_session_cookies[0]    = apr_pstrdup(wdn->pool,"identity");
     wdn->expected_session_cookies[1]    = apr_pstrdup(wdn->pool,"partner");
     wdn->expected_session_cookies[2]    = apr_pstrdup(wdn->pool,"town");
-    // wdn->expected_session_cookies[1]    = apr_pstrdup(wdn->pool,"wordpress_1e6110aa4c2980eedcf79a181d236f56");
+    /* end of session cookies names configuration */
 
-    // UGLY way to build session cookies scopes ;)
+    /* configure session cookies scopes here */
+    // repeat up to WARDEN_SCOPES_NUM
     cs.prot = '*';
     strcpy(cs.host,apr_pstrdup(wdn->pool,WARDEN_STATIC_HOST_NAME));
     strcpy(cs.path,apr_pstrdup(wdn->pool,"/"));
@@ -336,6 +337,7 @@ static void *wdn_srv_config(apr_pool_t *pchild, server_rec *s) {
     // cs.prot = '*';
     // host and path are the same as the previous scope, so we keep them
     // wdn->cookie_scopes[1] = cs;
+    /* end of scopes configuration */
 
 
     ap_log_perror(APLOG_MARK, APLOG_CRIT, res, s->process->pool, "[init] Setup OK");
@@ -461,7 +463,6 @@ static void strip_cookies_from_request(request_rec *r, char **cklist) {
     CHECKME: it has almost the same behaviour/usage as get_cookiestring_from_jar
     maybe we could collapse the two?
 */
-
 static bool is_cookie_in_jar(request_rec *r, char *jar, char *cookie_name) {
     char *localjar = apr_pstrdup(r->pool,jar);
     char *ck;
@@ -482,7 +483,6 @@ static char *get_cookiestring_from_jar(request_rec *r, char * jar, char *cookie_
             return ch;
         }
     }
-
     return NULL;
 }
 

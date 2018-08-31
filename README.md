@@ -16,24 +16,23 @@ variable `WARDEN_LOGIN_PATH` must be set to contain the path part of the login U
 
 session cookies must be configured directly in the source code at the moment:
 
-* `WARDEN_SESSION_COOKIES_NUM` must be set to the total number of session cookies that will be tracked 
-* update the cookies names near line 340, duplicating/deleting lines if needed 
-* `WARDEN_SCOPES_NUM` must be set to the total number of scopes that need to be tracked 
-* update cookies scopes in the subsequent lines, duplicating/deleting lines if needed
+* `WARDEN_SESSION_COOKIES_NUM` (line 29) must be set to the total number of session cookies that will be tracked 
+* update the cookies names under the `/* configure session cookies names here */` line, duplicating/deleting lines if needed 
+* `WARDEN_SCOPES_NUM` (line 30) must be set to the total number of scopes that need to be tracked 
+* update cookies scopes in lines under the `/* configure session cookies scopes here */` line, duplicating/deleting lines if needed
 
 ### server key
 
-update the server HMAC key with some fresh value in the variable `wdn->hmac_key` near line 330, and the initialization vector in `wdn->iv`
+update the server HMAC key with some fresh value in the variable `wdn->hmac_key` near the `// select a unique hmac key (this never leaves the server)` line, and the initialization vector in `wdn->iv`
 
 ### apache files
 
-the /etc/apache2/mods-available/warden.load file needs to be:
+the /etc/apache2/mods-available/warden.load file needs to be (you can find an example in the repo):
 ```
 LoadModule warden_module      /usr/lib/apache2/modules/mod_warden.so
 ```
 
-the /etc/apache2/mods-available/warden.conf needs to be:
-
+the /etc/apache2/mods-available/warden.conf needs to be (you may need to create it):
 ```
 <IfModule mod_warden.c>
         AddHandler wdn-register-handler .wdn
@@ -43,7 +42,7 @@ the /etc/apache2/mods-available/warden.conf needs to be:
 
 ### persistent storage
 
-Warden uses Apache DBD for persistent storage, presently configured to use an sqlite3 db.
+Warden uses Apache DBD for persistent storage, actually configured to use an sqlite3 db.
 The DBD backend can be configured changing the value of the `WARDEN_DB_TYPE` value.
 The path to the sqlite3 db can be configured with the `WARDEN_DB_PARAMS` value.
 The sqlite3 file must be initialized with:
@@ -54,7 +53,7 @@ CREATE TABLE keystore (key,scope,num, UNIQUE(key,scope) ON CONFLICT REPLACE);
 
 ### Other configurable values
 
-* `WARDEN_KEY_COOKIE_NAME` holds the name of the cookie used for the session key, change it if you alrady have cookies with the same name (if concerned: see Warden description to understand why it doesn't need particular protection)
+* `WARDEN_KEY_COOKIE_NAME` holds the name of the cookie used for the session key, change it if you alrady have cookies with the same name (if concerned: see Warden description in the paper to understand why it doesn't need particular protection)
 * `WARDEN_AUTH_COOKIE_NAME` holds the name used for linker cookies, change it if conflicts arise, but it's quite difficult it happens
 * `WARDEN_SHADOW_POSTFIX` holds a postfix appended to the name of session cookies, change it if you happen to have cookies with the same structure and postfix
 * `WARDEN_STATIC_HOST_NAME` put the static hostname here, but frankly this should be made dynamic ;)
@@ -71,5 +70,5 @@ Warden can be compiled with
 ```
 apxs -i -a -c mod_warden.c
 ```
-after compiling pay attention to the config files for apache, as warden.load seems to be rewritten after each compiler run.
-you can the restart apache
+
+you can then restart apache and Warden will be active.
