@@ -4,7 +4,7 @@ this module enables Warden: a server-side proxy which automatically enforces int
 
 Warden aims at improving protection against sub-session hijacking without requiring changes to the server-side logic of the website to protect.
 
-You can find more about Warden at: ************
+You can find more about Warden in [Sub-session hijacking on the Web: root causes and prevention](http://www.dais.unive.it/~calzavara/papers/jcs18.pdf) by Stefano Calzavara, Alvise Rabitti and Michele Bugliesi, published in Journal of Computer Security (JCS), 2018.
 
 ## configuration
 
